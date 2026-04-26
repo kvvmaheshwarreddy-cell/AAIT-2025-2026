@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Parking FINAL</title>
+
+<style>
+body {
+    margin:0;
+    font-family:'Segoe UI',sans-serif;
+    background:linear-gradient(135deg,#0f172a,#020617);
+    color:white;
+    display:flex;
+    justify-content:center;
+}
+
+.app { width:100%; max-width:420px; }
+
+.screen {
+    display:none;
+    padding:24px;
+    padding-bottom:90px;
+}
+.active { display:block; }
+
+.card {
+    background:rgba(255,255,255,0.05);
+    backdrop-filter:blur(10px);
+    border-radius:18px;
+    padding:20px;
+    margin-top:18px;
+}
+
+input {
+    width:100%;
+    padding:14px 12px;
+    margin-top:12px;
+    border-radius:12px;
+    border:none;
+    background:rgba(255,255,255,0.08);
+    color:white;
+    font-size:15px;
+    box-sizing:border-box;
+}
+
+.card input:first-child {
+    margin-top:0;
+}
+
+input::placeholder {
+    color:rgba(255,255,255,0.6);
+}
+
+button {
+    width:100%;
+    padding:14px;
+    margin-top:14px;
+    border:none;
+    border-radius:12px;
+    font-size:15px;
+    background:linear-gradient(135deg,#22c55e,#16a34a);
+    color:white;
+}
+
+button.secondary {
+    background:linear-gradient(135deg,#3b82f6,#2563eb);
+}
+
+.grid { display:flex; gap:10px; }
+.box {
+    flex:1;
+    padding:14px;
+    border-radius:14px;
+    text-align:center;
+}
+.green { background:rgba(34,197,94,0.3); }
+.blue { background:rgba(59,130,246,0.3); }
+.red { background:rgba(239,68,68,0.3); }
+
+.progress {
+    height:8px;
+    background:#1e293b;
+    border-radius:10px;
+    margin-top:10px;
+}
+.progress-bar {
+    height:100%;
+    background:#22c55e;
+    border-radius:10px;
+}
+
+.booking {
+    margin-top:10px;
+    padding:12px;
+    background:rgba(255,255,255,0.08);
+    border-radius:10px;
+}
+
+.nav {
+    position:fixed;
+    bottom:0;
+    width:100%;
+    max-width:420px;
+    display:flex;
+    justify-content:space-around;
+    background:rgba(30,41,59,0.8);
+    padding:10px;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="app">
+
+<!-- DASHBOARD -->
+<div id="dashboard" class="screen active">
+    <h3>Dashboard</h3>
+    <small id="clock"></small>
+
+    <div class="grid">
+        <div class="box green" id="total"></div>
+        <div class="box blue" id="available"></div>
+        <div class="box red" id="occupied"></div>
+    </div>
+
+    <div class="card">
+        <small>Occupancy</small>
+        <div class="progress">
+            <div id="bar" class="progress-bar"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h4>Active Bookings</h4>
+        <div id="list"></div>
+    </div>
+
+    <div class="card">
+        <button onclick="show('entry')">+ New Entry</button>
+    </div>
+</div>
+
+<!-- ENTRY -->
+<div id="entry" class="screen">
+    <h3>New Entry</h3>
+
+    <div class="card">
+        <input id="plate" placeholder="Plate Number">
+        <input id="hours" type="number" placeholder="Hours">
+
+        <button onclick="calculate()">Calculate Fee</button>
+
+        <h3 id="fee"></h3>
+
+        <button id="bookBtn" class="secondary" onclick="book()" style="display:none;">
+            Book Slot
+        </button>
+    </div>
+</div>
+
+<!-- NAV -->
+<div class="nav">
+    <button onclick="show('dashboard')">🏠</button>
+    <button onclick="show('entry')">➕</button>
+</div>
+
+</div>
+
+<script>
+let totalSlots = 50;
+let parkingData = JSON.parse(localStorage.getItem("parking")) || [];
+
+let tempData = {};
+let tempFee = 0;
+
+function show(screen) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(screen).classList.add('active');
+    updateDashboard();
+}
+
+// CLOCK
+setInterval(() => {
+    document.getElementById("clock").innerText =
+        new Date().toLocaleTimeString();
+}, 1000);
+
+// CALCULATE
+function calculate() {
+    let plate = document.getElementById("plate").value;
+    let hours = document.getElementById("hours").value;
+
+    if (!plate || !hours) return alert("Fill all fields");
+
+    tempFee = 20 * hours;
+
+    tempData = {
+        plate,
+        hours,
+        entryTime: Date.now()
+    };
+
+    document.getElementById("fee").innerText = "Estimated Fee: ₹ " + tempFee;
+    document.getElementById("bookBtn").style.display = "block";
+}
+
+// BOOK
+function book() {
+    parkingData.push(tempData);
+    localStorage.setItem("parking", JSON.stringify(parkingData));
+    show("dashboard");
+}
+
+// EXIT
+function exitCar(index) {
+    let car = parkingData[index];
+    let duration = (Date.now() - car.entryTime) / 3600000;
+    let price = Math.round(duration * 20);
+
+    alert(`Exit: ${car.plate}\nTime: ${duration.toFixed(2)} hrs\nPrice: ₹${price}`);
+
+    parkingData.splice(index,1);
+    localStorage.setItem("parking", JSON.stringify(parkingData));
+    updateDashboard();
+}
+
+// UPDATE DASHBOARD
+function updateDashboard() {
+    document.getElementById("total").innerHTML =
+        parkingData.length + "<br><small>Total</small>";
+
+    document.getElementById("occupied").innerHTML =
+        parkingData.length + "<br><small>Occupied</small>";
+
+    document.getElementById("available").innerHTML =
+        (totalSlots - parkingData.length) + "<br><small>Available</small>";
+
+    let percent = (parkingData.length / totalSlots) * 100;
+    document.getElementById("bar").style.width = percent + "%";
+
+    let list = document.getElementById("list");
+    list.innerHTML = "";
+
+    parkingData.forEach((car, i) => {
+        let time = new Date(car.entryTime).toLocaleTimeString();
+
+        list.innerHTML += `
+        <div class="booking">
+            🚗 ${car.plate}<br>
+            ⏱ ${car.hours} hrs<br>
+            🕒 ${time}<br>
+            <button onclick="exitCar(${i})">Exit</button>
+        </div>`;
+    });
+}
+
+updateDashboard();
+</script>
+
+</body>
+</html>
